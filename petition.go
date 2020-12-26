@@ -24,7 +24,6 @@ type BlueHousePetition struct {
 }
 
 // Petition 하나의 국민청원 데이터를 나타내는 오브젝트입니다.
-// source: https://www1.president.go.kr/petitions
 type Petition struct {
 	JSONID    string `json:"id"`
 	PagingID  int    `json:"paging_id"`
