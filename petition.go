@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	baseURL               = "https://www1.president.go.kr/api/petitions/list"
-	paetitionNumberByPage = 7
-	limitPages            = 30
+	baseURL              = "https://www1.president.go.kr/api/petitions/list"
+	petitionNumberByPage = 7
+	limitPages           = 50
 )
 
 // BlueHousePetition 청와대 국민청원 한 페이지에 대한 오브젝트입니다.
@@ -36,17 +36,20 @@ type Petition struct {
 	Provider  string `json:"provider"`
 }
 
-// GetPetitions 현재 시간의 모든 국민청원 데이터를 가져옵니다.
-func GetPetitions(category, only, order int) []Petition {
+// GetPetitions 실시간 국민청원 데이터를 가져옵니다.
+func GetPetitions(category, only, order int) ([]Petition, error) {
 	channelPetition := make(chan []Petition, 7)
 	defer close(channelPetition)
 	petitions := make([]Petition, 0, 7)
 
 	bluepet := RequestToBlueHouse(category, only, order, 1)
-	totalPages := GetTotalPages(*bluepet)
+	totalPages, err := GetTotalPages(bluepet.Total)
+	if err != nil {
+		return nil, err
+	}
 
-	// 청와대 제한: 350 * 1REQ => 약 3분 간 403 Forbidden
-	// 청와대 제한: 210 * 2REQ => 약 3분 간 403 Forbidden
+	// 청와대 제한: 약 3분 간 403 Forbidden
+	// 현재까지 maximum: 350 = 50(pages) * 7(petitions) * 1(request)
 	totalPages = limitPages
 	channelPetition <- bluepet.Item
 	for index := 2; index <= totalPages; index++ {
@@ -58,15 +61,7 @@ func GetPetitions(category, only, order int) []Petition {
 		pagePetitions := <-channelPetition
 		petitions = append(petitions, pagePetitions...)
 	}
-	return petitions
-}
-
-// GetTotalPages 국민청원 총 페이지 수를 구합니다.
-func GetTotalPages(bluepet BlueHousePetition) (totalPages int) {
-	totalPages, err := strconv.Atoi(bluepet.Total)
-	panicError(err)
-	totalPages = totalPages / paetitionNumberByPage
-	return totalPages
+	return petitions, nil
 }
 
 // RequestToBlueHouse HTTP 요청을 통해 한 페이지에 해당하는
@@ -102,7 +97,7 @@ func GetTotalPages(bluepet BlueHousePetition) (totalPages int) {
 //             | 2             | 추천순 보기
 //  -----------+---------------+-------------
 //  page       | number        | 현재 페이지 번호
-func RequestToBlueHouse(category, only, order, page int) *BlueHousePetition {
+func RequestToBlueHouse(category, only, order, page int) (bluepet *BlueHousePetition) {
 	form := url.Values{
 		"c":     {strconv.Itoa(category)},
 		"only":  {strconv.Itoa(only)},
@@ -111,22 +106,32 @@ func RequestToBlueHouse(category, only, order, page int) *BlueHousePetition {
 	}
 
 	request, err := http.NewRequest("POST", baseURL, strings.NewReader(form.Encode()))
-	panicError(err)
+	if err != nil {
+		panic(err)
+	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("X-Requested-With", "XMLHttpRequest")
 
 	client := &http.Client{}
 	response, err := client.Do(request)
-	panicError(err)
-	checkStatusCode(response)
+	if err != nil {
+		panic(err)
+	}
 	defer response.Body.Close()
 
+	if response.StatusCode < 200 || 300 <= response.StatusCode {
+		panic(response.Status)
+	}
+
 	body, err := ioutil.ReadAll(response.Body)
-	panicError(err)
+	if err != nil {
+		panic(err)
+	}
 
-	var bluepet BlueHousePetition
 	err = json.Unmarshal(body, &bluepet)
-	panicError(err)
+	if err != nil {
+		panic(err)
+	}
 
-	return &bluepet
+	return bluepet
 }
