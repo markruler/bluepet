@@ -5,7 +5,7 @@
 ## Usage
 
 ```bash
-go get github.com/cxsu/bluepet
+go get github.com/markruler/bluepet
 ```
 
 ## Related

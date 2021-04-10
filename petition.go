@@ -30,7 +30,7 @@ type Petition struct {
 	Title     string `json:"title"`
 	Agreement string `json:"agreement"`
 	Category  string `json:"category"`
-	Created   string `json:"created"`
+	CreatedAt string `json:"created_at"`
 	Finished  string `json:"finished"`
 	Provider  string `json:"provider"`
 }
@@ -42,14 +42,14 @@ func GetPetitions(category, only, order int) ([]Petition, error) {
 	petitions := make([]Petition, 0, 7)
 
 	bluepet := RequestToBlueHouse(category, only, order, 1)
-	totalPages, err := GetTotalPages(bluepet.Total)
-	if err != nil {
-		return nil, err
-	}
+	// totalPages, err := GetTotalPages(bluepet.Total)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// 청와대 제한: 약 3분 간 403 Forbidden
 	// 현재까지 maximum: 350 = 50(pages) * 7(petitions) * 1(request)
-	totalPages = limitPages
+	totalPages := limitPages
 	channelPetition <- bluepet.Item
 	for index := 2; index <= totalPages; index++ {
 		go func(index int) {

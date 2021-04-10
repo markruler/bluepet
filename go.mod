@@ -1,4 +1,4 @@
-module github.com/cxsu/bluepet
+module github.com/markruler/bluepet
 
 go 1.15
 
